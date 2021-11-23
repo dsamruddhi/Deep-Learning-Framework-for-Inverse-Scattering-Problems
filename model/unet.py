@@ -49,6 +49,9 @@ class UNet(BaseModel):
         self.train_batch_size = Config.config["train"]["train_batch_size"]
         self.val_batch_size = Config.config["train"]["val_batch_size"]
 
+        # Logging
+        self.file_writer = None
+
     def load_data(self, show_data=False):
         self.train_input, self.train_output, self.test_input, self.test_output = DataLoader().main(show_data)
 
@@ -147,8 +150,8 @@ class UNet(BaseModel):
                                "logs",
                                self.experiment_name,
                                datetime.datetime.now().strftime("%Y%m%d-%H%M%S"))
-        file_writer = tf.summary.create_file_writer(log_dir)
-        file_writer.set_as_default()
+        self.file_writer = tf.summary.create_file_writer(log_dir)
+        self.file_writer.set_as_default()
         self.tensorboard_callback = TensorBoard(log_dir=log_dir,
                                                 histogram_freq=1)
 
@@ -180,15 +183,25 @@ class UNet(BaseModel):
         self.pred_output = self.pred_output[:, :, :, 0]
         PlotUtils.plot_results(self.test_output, self.test_input, self.pred_output)
 
-    def extreme_outputs(self, num=5):
+    def extreme_outputs(self, num=5, show=False):
 
         error = tf.math.reduce_sum(tf.math.square(self.pred_output - self.test_output), axis=(1, 2))
         sorted_index = sorted(range(len(error)), key=lambda k: error[k])
 
         title = "Best Reconstructions"
-        for i in sorted_index[-num:-1]:
-            PlotUtils.plot_errors(self.test_output[i, :, :], self.pred_output[i, :, :], title)
+        for i, index in enumerate(sorted_index[-num-1:-1]):
+            plot_buf = PlotUtils.plot_errors(self.test_output[index, :, :], self.pred_output[index, :, :], title, show)
+            image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
+            image = tf.expand_dims(image, 0)
+            with self.file_writer.as_default():
+                tf.summary.image("Best Reconstructions", image, step=i)
+            del image
 
         title = "Worst Reconstructions"
-        for i in sorted_index[0:num]:
-            PlotUtils.plot_errors(self.test_output[i, :, :], self.pred_output[i, :, :], title)
+        for i, index in enumerate(sorted_index[0:num]):
+            plot_buf = PlotUtils.plot_errors(self.test_output[index, :, :], self.pred_output[index, :, :], title, show)
+            image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
+            image = tf.expand_dims(image, 0)
+            with self.file_writer.as_default():
+                tf.summary.image("Worst Reconstructions", image, step=i)
+            del image
