@@ -119,7 +119,11 @@ class UNet(BaseModel):
         lr_schedule = ExponentialDecay(Config.config["train"]["initial_learning_rate"],
                                        decay_steps=Config.config["train"]["decay_steps"],
                                        decay_rate=Config.config["train"]["decay_rate"])
-        self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss="mean_absolute_error", metrics=["accuracy"])
+        self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss=Config.config["train"]["loss"], metrics=Config.config["train"]["metrics"])
+
+    def log(self):
+        with open(os.path.join(self.model_path, self.experiment_name, "config.pkl")) as f:
+            pickle.dump(f, Config.config)
 
     def checkpoint(self):
         filepath = os.path.join(self.model_path,
