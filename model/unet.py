@@ -1,4 +1,5 @@
 import tensorflow as tf
+from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Model
 from tensorflow.keras.layers import Input, \
@@ -33,6 +34,7 @@ class UNet(BaseModel):
         self.train_output = None
         self.test_input = None
         self.test_output = None
+        self.pred_output = None
         self.data_generator = ImageDataGenerator(validation_split=Config.config["train"]["validation_split"])
 
         # Model and its attributes
@@ -122,8 +124,8 @@ class UNet(BaseModel):
         self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss=Config.config["train"]["loss"], metrics=Config.config["train"]["metrics"])
 
     def log(self):
-        with open(os.path.join(self.model_path, self.experiment_name, "config.pkl")) as f:
-            pickle.dump(f, Config.config)
+        with open(os.path.join(self.model_path, self.experiment_name, "config.pkl"), "wb") as f:
+            pickle.dump(Config.config, f)
 
     def checkpoint(self):
         filepath = os.path.join(self.model_path,
@@ -164,9 +166,29 @@ class UNet(BaseModel):
                                        epochs=self.epochs,
                                        callbacks=[self.checkpoint_callback,
                                                   self.tensorboard_callback])
-        with open(os.path.join(self.model_path, self.experiment_name, "model_history.pkl")) as f:
-            pickle.dump(f, model_history)
+
+        with open(os.path.join(self.model_path, self.experiment_name, "model_history.pkl"), "wb") as f:
+            pickle.dump(model_history.history, f)
+
+    def get_best_model(self):
+        model_dir = os.path.join(self.model_path, self.experiment_name, "checkpoints")
+        best_model_path = max([os.path.join(model_dir, d) for d in os.listdir(model_dir)], key=os.path.getmtime)
+        self.model = load_model(best_model_path)
 
     def evaluate(self):
-        pred_output = self.model.predict(self.test_input)
-        PlotUtils.plot_results(self.test_output, self.test_input, pred_output)
+        self.pred_output = self.model.predict(self.test_input)
+        self.pred_output = self.pred_output[:, :, :, 0]
+        PlotUtils.plot_results(self.test_output, self.test_input, self.pred_output)
+
+    def extreme_outputs(self, num=5):
+
+        error = tf.math.reduce_sum(tf.math.square(self.pred_output - self.test_output), axis=(1, 2))
+        sorted_index = sorted(range(len(error)), key=lambda k: error[k])
+
+        title = "Best Reconstructions"
+        for i in sorted_index[-num:-1]:
+            PlotUtils.plot_errors(self.test_output[i, :, :], self.pred_output[i, :, :], title)
+
+        title = "Worst Reconstructions"
+        for i in sorted_index[0:num]:
+            PlotUtils.plot_errors(self.test_output[i, :, :], self.pred_output[i, :, :], title)
