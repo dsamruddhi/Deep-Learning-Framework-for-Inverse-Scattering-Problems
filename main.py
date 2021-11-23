@@ -15,10 +15,16 @@ if __name__ == '__main__':
     session = InteractiveSession(config=config)
 
     model = UNet()
+
     model.load_data()
     model.build()
-    model.log()
     model.checkpoint()
     model.tensorboard()
+
     model.train()
+
+    model.get_best_model()
     model.evaluate()
+    model.extreme_outputs()
+
+    model.log()
