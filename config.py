@@ -1,10 +1,9 @@
 class Config:
-
     config = {
         "data": {
-
             "input_paths": "",
             "output_paths": "",
+            "standard_path": "",
             "test_size": 0.1,
             "num_samples": 5000
         },
@@ -20,7 +19,7 @@ class Config:
             "loss": "mean_absolute_error",
             "metrics": ["accuracy"],
             'validation_split': 0.2,
-            "epochs": 20,
+            "epochs": 100,
             "train_batch_size": 32,
             "val_batch_size": 8
         },
