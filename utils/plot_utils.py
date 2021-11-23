@@ -106,3 +106,31 @@ class PlotUtils:
             plt.close(fig)
             buf.seek(0)
             return buf
+
+    @staticmethod
+    def plot_output(pred_output, title, show):
+        plot_extent = PlotUtils.get_doi_extent()
+        plot_cmap = PlotUtils.get_cmap()
+
+        fig, (ax2) = plt.subplots(ncols=1)
+
+        guess_real = ax2.imshow(pred_output, cmap=plot_cmap, extent=plot_extent)
+        cb2 = fig.colorbar(guess_real, ax=ax2, fraction=0.046, pad=0.04)
+        cb2.ax.tick_params(labelsize=12)
+        ax2.title.set_text("Obtained output")
+        ax2.set(xticks=[-0.75, 0, 0.75], yticks=[-0.75, 0, 0.75])
+
+        plt.setp(ax2.get_xticklabels(), fontsize=12, horizontalalignment="left")
+        plt.setp(ax2.get_yticklabels(), fontsize=12)
+        plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.4, hspace=None)
+
+        if show:
+            fig.suptitle(f"{title}")
+            plt.show()
+
+        else:
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png')
+            plt.close(fig)
+            buf.seek(0)
+            return buf

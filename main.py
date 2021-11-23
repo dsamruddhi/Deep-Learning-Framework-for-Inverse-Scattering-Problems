@@ -26,5 +26,6 @@ if __name__ == '__main__':
     model.get_best_model()
     model.evaluate()
     model.extreme_outputs()
+    model.standard_outputs()
 
     model.log()

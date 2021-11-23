@@ -1,4 +1,7 @@
+import numpy as np
 import tensorflow as tf
+from scipy.io import loadmat
+
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Model
@@ -174,6 +177,7 @@ class UNet(BaseModel):
             pickle.dump(model_history.history, f)
 
     def get_best_model(self):
+        """Function can be used to get best model after training is done, both immediately and later """
         model_dir = os.path.join(self.model_path, self.experiment_name, "checkpoints")
         best_model_path = max([os.path.join(model_dir, d) for d in os.listdir(model_dir)], key=os.path.getmtime)
         self.model = load_model(best_model_path)
@@ -204,4 +208,32 @@ class UNet(BaseModel):
             image = tf.expand_dims(image, 0)
             with self.file_writer.as_default():
                 tf.summary.image("Worst Reconstructions", image, step=i)
+            del image
+
+    def standard_outputs(self, show=False):
+        data_path = Config.config["data"]["standard_path"]
+        list_dir = os.listdir(data_path)
+        list_dir.sort(key=lambda x: int(x.strip("test")))
+
+        for index, dir in enumerate(list_dir):
+
+            real_rec = loadmat(os.path.join(data_path, dir, "real_rec.mat"))["real_rec"]
+            imag_rec = loadmat(os.path.join(data_path, dir, "imag_rec.mat"))["imag_rec"]
+
+            params = loadmat(os.path.join(data_path, dir, "params.mat"))["params"]
+
+            test_input = np.asarray([real_rec, imag_rec])
+            test_input = np.moveaxis(test_input, 0, -1)
+            test_input = test_input[np.newaxis, ...]
+
+            """ Model Test """
+            y_pred = self.model.predict(test_input)
+            y_pred = y_pred[0, :, :, :]
+
+            title = f"Test {index}: {round(params[0][0][0][0][4][0][0], 2)}"
+            plot_buf = PlotUtils.plot_output(y_pred, title, show)
+            image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
+            image = tf.expand_dims(image, 0)
+            with self.file_writer.as_default():
+                tf.summary.image(title, image, step=1)
             del image
