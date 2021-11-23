@@ -15,6 +15,10 @@ class BaseModel(ABC):
         pass
 
     @abstractmethod
+    def log(self):
+        pass
+
+    @abstractmethod
     def train(self):
         pass
 
