@@ -2,9 +2,9 @@ import random
 import numpy as np
 import matplotlib.pyplot as plt
 
-import config
-from load_data import Load
-from process_data import Process
+from config import Config
+from dataloader.load_data import Load
+from dataloader.process_data import Process
 
 from utils.plot_utils import PlotUtils
 
@@ -13,9 +13,9 @@ class DataLoader:
 
     def __init__(self):
 
-        self.input_path = config.config["data"]["input_paths"]
-        self.output_path = config.config["data"]["output_paths"]
-        self.test_size = config.config["data"]["test_size"]
+        self.input_path = Config.config["data"]["input_paths"]
+        self.output_path = Config.config["data"]["output_paths"]
+        self.test_size = Config.config["data"]["test_size"]
 
     @staticmethod
     def check_data(train_input, train_output):
@@ -41,7 +41,7 @@ class DataLoader:
 
             plt.show()
 
-    def main(self, show_data=True):
+    def main(self, show_data):
 
         X_real, X_imag = Load.get_input_data(self.input_path)
         X = np.asarray([X_real, X_imag])
