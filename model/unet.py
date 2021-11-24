@@ -25,6 +25,8 @@ from model.base_model import BaseModel
 from dataloader.data_loader import DataLoader
 from utils.plot_utils import PlotUtils
 
+from callbacks.epoch_progress import EpochProgressCallback
+
 
 class UNet(BaseModel):
 
@@ -46,6 +48,7 @@ class UNet(BaseModel):
         self.model = None
         self.checkpoint_callback = None
         self.tensorboard_callback = None
+        self.epoch_callback = None
 
         # Training
         self.epochs = Config.config["train"]["epochs"]
@@ -133,13 +136,14 @@ class UNet(BaseModel):
         with open(os.path.join(self.model_path, self.experiment_name, "config.pkl"), "wb") as f:
             pickle.dump(Config.config, f)
 
-    def checkpoint(self):
-        filepath = os.path.join(self.model_path,
-                                self.experiment_name,
-                                "checkpoints",
-                                "weights-{epoch:02d}-{loss:.4f}-{val_loss:.4f}")
+    def create_callbacks(self):
 
-        self.checkpoint_callback = ModelCheckpoint(filepath,
+        # Checkpoint callback
+        checkpoint_path = os.path.join(self.model_path,
+                                       self.experiment_name,
+                                       "checkpoints",
+                                       "weights-{epoch:02d}-{loss:.4f}-{val_loss:.4f}")
+        self.checkpoint_callback = ModelCheckpoint(checkpoint_path,
                                                    monitor='val_loss',
                                                    verbose=0,
                                                    save_best_only=True,
@@ -148,7 +152,7 @@ class UNet(BaseModel):
                                                    save_freq="epoch",
                                                    period=1)
 
-    def tensorboard(self):
+        # Tensorboard callback
         log_dir = os.path.join(self.model_path,
                                "logs",
                                self.experiment_name,
@@ -157,6 +161,9 @@ class UNet(BaseModel):
         self.file_writer.set_as_default()
         self.tensorboard_callback = TensorBoard(log_dir=log_dir,
                                                 histogram_freq=1)
+
+        # Epoch progress callback
+        self.epoch_callback = EpochProgressCallback(self.file_writer)
 
     def train(self):
         model_history = self.model.fit(self.data_generator.flow(self.train_input,
@@ -171,13 +178,14 @@ class UNet(BaseModel):
                                        shuffle=True,
                                        epochs=self.epochs,
                                        callbacks=[self.checkpoint_callback,
-                                                  self.tensorboard_callback])
+                                                  self.tensorboard_callback,
+                                                  self.epoch_callback])
 
         with open(os.path.join(self.model_path, self.experiment_name, "model_history.pkl"), "wb") as f:
             pickle.dump(model_history.history, f)
 
     def get_best_model(self):
-        """Function can be used to get best model after training is done, both immediately and later """
+        """ Pick model with lowest validation error after training is done """
         model_dir = os.path.join(self.model_path, self.experiment_name, "checkpoints")
         best_model_path = max([os.path.join(model_dir, d) for d in os.listdir(model_dir)], key=os.path.getmtime)
         self.model = load_model(best_model_path)
@@ -210,7 +218,7 @@ class UNet(BaseModel):
                 tf.summary.image("Worst Reconstructions", image, step=i)
             del image
 
-    def standard_outputs(self, show=False):
+    def standard_outputs(self):
         data_path = Config.config["data"]["standard_path"]
         list_dir = os.listdir(data_path)
         list_dir.sort(key=lambda x: int(x.strip("test")))
@@ -226,12 +234,11 @@ class UNet(BaseModel):
             test_input = np.moveaxis(test_input, 0, -1)
             test_input = test_input[np.newaxis, ...]
 
-            """ Model Test """
             y_pred = self.model.predict(test_input)
             y_pred = y_pred[0, :, :, :]
 
             title = f"Test {index}: {round(params[0][0][0][0][4][0][0], 2)}"
-            plot_buf = PlotUtils.plot_output(y_pred, title, show)
+            plot_buf = PlotUtils.plot_output(y_pred)
             image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
             image = tf.expand_dims(image, 0)
             with self.file_writer.as_default():

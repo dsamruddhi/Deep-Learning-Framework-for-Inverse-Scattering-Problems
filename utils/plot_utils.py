@@ -108,7 +108,7 @@ class PlotUtils:
             return buf
 
     @staticmethod
-    def plot_output(pred_output, title, show):
+    def plot_output(pred_output):
         plot_extent = PlotUtils.get_doi_extent()
         plot_cmap = PlotUtils.get_cmap()
 
@@ -124,13 +124,8 @@ class PlotUtils:
         plt.setp(ax2.get_yticklabels(), fontsize=12)
         plt.subplots_adjust(left=None, bottom=None, right=None, top=None, wspace=0.4, hspace=None)
 
-        if show:
-            fig.suptitle(f"{title}")
-            plt.show()
-
-        else:
-            buf = io.BytesIO()
-            plt.savefig(buf, format='png')
-            plt.close(fig)
-            buf.seek(0)
-            return buf
+        buf = io.BytesIO()
+        plt.savefig(buf, format='png')
+        plt.close(fig)
+        buf.seek(0)
+        return buf
