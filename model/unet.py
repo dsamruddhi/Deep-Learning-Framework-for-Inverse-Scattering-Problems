@@ -14,6 +14,7 @@ from tensorflow.keras.layers import Input, \
                                     Activation, \
                                     Conv2DTranspose
 from tensorflow.keras.optimizers import Adam
+from tensorflow.keras.losses import Huber
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
@@ -25,6 +26,7 @@ from model.base_model import BaseModel
 from dataloader.data_loader import DataLoader
 from utils.plot_utils import PlotUtils
 
+from loss_functions.reverse_huber import ReverseHuber
 from callbacks.epoch_progress import EpochProgressCallback
 
 
@@ -130,7 +132,7 @@ class UNet(BaseModel):
         lr_schedule = ExponentialDecay(Config.config["train"]["initial_learning_rate"],
                                        decay_steps=Config.config["train"]["decay_steps"],
                                        decay_rate=Config.config["train"]["decay_rate"])
-        self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss=Config.config["train"]["loss"], metrics=Config.config["train"]["metrics"])
+        self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss=ReverseHuber(slope=1, delta=0.1), metrics=Config.config["train"]["metrics"])
 
     def log(self):
         with open(os.path.join(self.model_path, self.experiment_name, "config.pkl"), "wb") as f:
@@ -200,22 +202,22 @@ class UNet(BaseModel):
         error = tf.math.reduce_sum(tf.math.square(self.pred_output - self.test_output), axis=(1, 2))
         sorted_index = sorted(range(len(error)), key=lambda k: error[k])
 
-        title = "Best Reconstructions"
+        title = "Worst Reconstructions"
         for i, index in enumerate(sorted_index[-num-1:-1]):
             plot_buf = PlotUtils.plot_errors(self.test_output[index, :, :], self.pred_output[index, :, :], title, show)
             image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
             image = tf.expand_dims(image, 0)
             with self.file_writer.as_default():
-                tf.summary.image("Best Reconstructions", image, step=i)
+                tf.summary.image("Worst Reconstructions", image, step=i)
             del image
 
-        title = "Worst Reconstructions"
+        title = "Best Reconstructions"
         for i, index in enumerate(sorted_index[0:num]):
             plot_buf = PlotUtils.plot_errors(self.test_output[index, :, :], self.pred_output[index, :, :], title, show)
             image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
             image = tf.expand_dims(image, 0)
             with self.file_writer.as_default():
-                tf.summary.image("Worst Reconstructions", image, step=i)
+                tf.summary.image("Best Reconstructions", image, step=i)
             del image
 
     def standard_outputs(self):
