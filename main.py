@@ -17,14 +17,13 @@ if __name__ == '__main__':
     model = UNet()
 
     model.load_data()
+
     model.build()
     model.create_callbacks()
-
     model.train()
 
     model.get_best_model()
     model.evaluate()
-    model.extreme_outputs()
-    # model.standard_outputs()
+    model.log_extreme_outputs()
 
     model.log()
