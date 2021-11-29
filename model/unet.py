@@ -1,6 +1,7 @@
-import numpy as np
+import os
+import pickle
+import datetime
 import tensorflow as tf
-from scipy.io import loadmat
 
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -18,9 +19,7 @@ from tensorflow.keras.losses import Huber
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
 from tensorflow.keras.callbacks import ModelCheckpoint, TensorBoard
 
-import os
-import pickle
-import datetime
+
 from config import Config
 from model.base_model import BaseModel
 from dataloader.data_loader import DataLoader
@@ -132,7 +131,9 @@ class UNet(BaseModel):
         lr_schedule = ExponentialDecay(Config.config["train"]["initial_learning_rate"],
                                        decay_steps=Config.config["train"]["decay_steps"],
                                        decay_rate=Config.config["train"]["decay_rate"])
-        self.model.compile(optimizer=Adam(learning_rate=lr_schedule), loss=ReverseHuber(slope=1, delta=0.1), metrics=Config.config["train"]["metrics"])
+        self.model.compile(optimizer=Adam(learning_rate=lr_schedule),
+                           loss=ReverseHuber(slope=1, delta=0.1),
+                           metrics=Config.config["train"]["metrics"])
 
     def log(self):
         with open(os.path.join(self.model_path, self.experiment_name, "config.pkl"), "wb") as f:
@@ -190,14 +191,19 @@ class UNet(BaseModel):
         """ Pick model with lowest validation error after training is done """
         model_dir = os.path.join(self.model_path, self.experiment_name, "checkpoints")
         best_model_path = max([os.path.join(model_dir, d) for d in os.listdir(model_dir)], key=os.path.getmtime)
-        self.model = load_model(best_model_path)
+        # TODO: load_model throws error when it does not find custom loss functions during inference.
+        #  Adding custom_objects={"ReverseHuber": ReverseHuber(slope=1, delta=0.1).call} throws error since call method
+        #  does not take reduction that is passed to it. Setting compile=False for now to avoid this issue since
+        #  inference is still possible. FIX this later if needed. Problem only with custom loss functions, not needed
+        #  with predefined ones.
+        self.model = load_model(best_model_path, compile=False)
 
     def evaluate(self):
         self.pred_output = self.model.predict(self.test_input)
         self.pred_output = self.pred_output[:, :, :, 0]
         PlotUtils.plot_results(self.test_output, self.test_input, self.pred_output)
 
-    def extreme_outputs(self, num=5, show=False):
+    def log_extreme_outputs(self, num=5, show=False):
 
         error = tf.math.reduce_sum(tf.math.square(self.pred_output - self.test_output), axis=(1, 2))
         sorted_index = sorted(range(len(error)), key=lambda k: error[k])
@@ -218,31 +224,4 @@ class UNet(BaseModel):
             image = tf.expand_dims(image, 0)
             with self.file_writer.as_default():
                 tf.summary.image("Best Reconstructions", image, step=i)
-            del image
-
-    def standard_outputs(self):
-        data_path = Config.config["data"]["standard_path"]
-        list_dir = os.listdir(data_path)
-        list_dir.sort(key=lambda x: int(x.strip("test")))
-
-        for index, dir in enumerate(list_dir):
-
-            real_rec = loadmat(os.path.join(data_path, dir, "real_rec.mat"))["real_rec"]
-            imag_rec = loadmat(os.path.join(data_path, dir, "imag_rec.mat"))["imag_rec"]
-
-            params = loadmat(os.path.join(data_path, dir, "params.mat"))["params"]
-
-            test_input = np.asarray([real_rec, imag_rec])
-            test_input = np.moveaxis(test_input, 0, -1)
-            test_input = test_input[np.newaxis, ...]
-
-            y_pred = self.model.predict(test_input)
-            y_pred = y_pred[0, :, :, :]
-
-            title = f"Test {index}: {round(params[0][0][0][0][4][0][0], 2)}"
-            plot_buf = PlotUtils.plot_output(y_pred)
-            image = tf.image.decode_png(plot_buf.getvalue(), channels=4)
-            image = tf.expand_dims(image, 0)
-            with self.file_writer.as_default():
-                tf.summary.image(title, image, step=1)
             del image

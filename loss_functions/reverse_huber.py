@@ -1,14 +1,16 @@
 import tensorflow as tf
 from tensorflow.keras.losses import Loss
+from tensorflow.keras.losses import Reduction
 
 
 class ReverseHuber(Loss):
 
-    def __init__(self, slope, delta, name=None):
+    def __init__(self, slope, delta, name="reverse_huber", reduction=Reduction.AUTO):
         super().__init__()
         self.slope = slope
         self.delta = delta
         self.name = name
+        self.reduction = reduction
 
     def call(self, y_true, y_pred):
         y_pred = y_pred[:, :, :, 0]
