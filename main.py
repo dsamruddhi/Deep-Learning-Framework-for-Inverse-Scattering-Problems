@@ -24,6 +24,10 @@ if __name__ == '__main__':
 
     model.get_best_model()
     model.evaluate()
-    model.log_extreme_outputs()
+    model.see_random_results()
+    model.get_metrics()
 
+    model.log_extreme_outputs()
     model.log()
+
+    # model.model_compare()
