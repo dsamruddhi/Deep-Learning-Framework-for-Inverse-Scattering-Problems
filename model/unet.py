@@ -28,6 +28,8 @@ from utils.plot_utils import PlotUtils
 from loss_functions.reverse_huber import ReverseHuber
 from callbacks.epoch_progress import EpochProgressCallback
 
+from metric_functions.metrics import Metrics
+
 
 class UNet(BaseModel):
 
@@ -55,6 +57,10 @@ class UNet(BaseModel):
         self.epochs = Config.config["train"]["epochs"]
         self.train_batch_size = Config.config["train"]["train_batch_size"]
         self.val_batch_size = Config.config["train"]["val_batch_size"]
+
+        # Test
+        self.test_mse = None
+        self.test_psnr = None
 
         # Logging
         self.file_writer = None
@@ -132,7 +138,7 @@ class UNet(BaseModel):
                                        decay_steps=Config.config["train"]["decay_steps"],
                                        decay_rate=Config.config["train"]["decay_rate"])
         self.model.compile(optimizer=Adam(learning_rate=lr_schedule),
-                           loss=ReverseHuber(slope=1, delta=0.1),
+                           loss=ReverseHuber(slope=3, delta=0.1),
                            metrics=Config.config["train"]["metrics"])
 
     def log(self):
@@ -201,7 +207,15 @@ class UNet(BaseModel):
     def evaluate(self):
         self.pred_output = self.model.predict(self.test_input)
         self.pred_output = self.pred_output[:, :, :, 0]
-        PlotUtils.plot_results(self.test_output, self.test_input, self.pred_output)
+
+    def see_random_results(self):
+        PlotUtils.plot_random_results(self.test_output, self.test_input, self.pred_output)
+
+    def get_metrics(self):
+        self.test_mse = [Metrics.mse(self.test_output[i, :, :], self.pred_output[i, :, :])
+                         for i in range(0, self.test_output.shape[0])]
+        self.test_psnr = [Metrics.psnr(self.test_output[i, :, :], self.pred_output[i, :, :])
+                          for i in range(0, self.test_output.shape[0])]
 
     def log_extreme_outputs(self, num=5, show=False):
 
@@ -225,3 +239,17 @@ class UNet(BaseModel):
             with self.file_writer.as_default():
                 tf.summary.image("Best Reconstructions", image, step=i)
             del image
+
+    # TODO Keeping this function here for the lack of a better place right now. Figure out where this goes later.
+    def model_compare(self):
+        """ Generate and plot results for a set of fixed indices everytime the function is run.
+            The model used could be different and is set from the config file.
+            Intent is to be able to compare results obtained by different models on the same samples
+        """
+        indices = {10, 20, 40, 60, 100}
+        for index in indices:
+            PlotUtils.generate_sim_result(self.test_output[index, :, :],
+                                          self.test_input[index, :, :, 0],
+                                          self.test_input[index, :, :, 1],
+                                          self.pred_output[index, :, :])
+            print(f"Index: {index}, MSE: {self.test_mse[index]}, PSNR: {self.test_psnr[index]}")
