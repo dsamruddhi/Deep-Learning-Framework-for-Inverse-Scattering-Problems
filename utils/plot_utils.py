@@ -1,6 +1,9 @@
 import io
 import random
 import matplotlib.pyplot as plt
+
+# TODO Need to toggle this on and off during eval/training phases. Refactor this and functions in main.py to
+#  take value from config file and do this automatically.
 import matplotlib
 matplotlib.use("Agg")
 
