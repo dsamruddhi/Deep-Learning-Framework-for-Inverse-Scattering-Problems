@@ -1,19 +1,15 @@
 import os
 import pickle
 import datetime
+import numpy as np
 import tensorflow as tf
+from scipy.io import loadmat
 
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.models import Model
-from tensorflow.keras.layers import Input, \
-                                    Conv2D, \
-                                    MaxPooling2D, \
-                                    Concatenate, \
-                                    UpSampling2D, \
-                                    BatchNormalization, \
-                                    Activation, \
-                                    Conv2DTranspose
+from tensorflow.keras.layers import Input, Conv2D, MaxPooling2D, Concatenate, UpSampling2D, BatchNormalization,\
+                                    Activation, Conv2DTranspose
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.losses import Huber
 from tensorflow.keras.optimizers.schedules import ExponentialDecay
@@ -145,7 +141,7 @@ class UNet(BaseModel):
         with open(os.path.join(self.model_path, self.experiment_name, "config.pkl"), "wb") as f:
             pickle.dump(Config.config, f)
 
-    def create_callbacks(self):
+    def callbacks(self):
 
         # Checkpoint callback
         checkpoint_path = os.path.join(self.model_path,
@@ -253,3 +249,27 @@ class UNet(BaseModel):
                                           self.test_input[index, :, :, 1],
                                           self.pred_output[index, :, :])
             print(f"Index: {index}, MSE: {self.test_mse[index]}, PSNR: {self.test_psnr[index]}")
+
+    def predict(self):
+        """ Function used to predict output for out-of-sample simulation data or experiment data.
+            Read input and expected output files from disk everytime
+        """
+        real_rec = loadmat(Config.config["test"]["chi_real_path"])["real_rec"]
+        imag_rec = loadmat(Config.config["test"]["chi_imag_path"])["imag_rec"]
+
+        if Config.config["test"]["output_path"]:
+            ground_truth = loadmat(Config.config["test"]["output_path"])["scatterer"]
+        else:
+            ground_truth = None
+
+        test_input = np.asarray([real_rec, imag_rec])
+        test_input = np.moveaxis(test_input, 0, -1)
+        test_input = test_input[np.newaxis, ...]
+
+        self.y_pred = self.model.predict(test_input)
+        self.y_pred = self.y_pred[0, :, :, 0]
+
+        if ground_truth:
+            PlotUtils.generate_sim_result(ground_truth, real_rec, imag_rec, self.y_pred)
+        else:
+            PlotUtils.generate_exp_result(real_rec, imag_rec, self.y_pred)
