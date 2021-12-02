@@ -19,15 +19,20 @@ if __name__ == '__main__':
     model.load_data()
 
     model.build()
-    model.create_callbacks()
+    model.callbacks()
     model.train()
 
     model.get_best_model()
     model.evaluate()
     model.see_random_results()
     model.get_metrics()
-
     model.log_extreme_outputs()
     model.log()
 
-    # model.model_compare()
+    model.model_compare()
+    model.predict()
+
+    # TODO Three workflows:
+    #  1. Training and logging to tensorflow
+    #  2. Model loading and evaluation
+    #  3. Test on simulation and experiment data
