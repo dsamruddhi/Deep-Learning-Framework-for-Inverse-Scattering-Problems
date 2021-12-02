@@ -257,8 +257,8 @@ class UNet(BaseModel):
         real_rec = loadmat(Config.config["test"]["chi_real_path"])["real_rec"]
         imag_rec = loadmat(Config.config["test"]["chi_imag_path"])["imag_rec"]
 
-        if Config.config["test"]["eier_output_path"]:
-            ground_truth = loadmat(Config.config["test"]["eier_output_path"])["scatterer"]
+        if Config.config["test"]["output_path"]:
+            ground_truth = loadmat(Config.config["test"]["output_path"])["scatterer"]
         else:
             ground_truth = None
 

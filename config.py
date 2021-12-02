@@ -23,6 +23,11 @@ class Config:
             "train_batch_size": 32,
             "val_batch_size": 8
         },
+        "test": {
+            "chi_real_path": "",
+            "chi_imag_path": "",
+            "output_path": None
+        },
         "plot": {
             "doi_length": 1.5,
             "cmap": "jet"
